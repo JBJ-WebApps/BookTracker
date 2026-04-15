@@ -35,3 +35,6 @@ seed/
 *.sln
 *.sw?
 reference/
+
+# Local Netlify folder
+.netlify

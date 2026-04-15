@@ -16,20 +16,67 @@ function Chevron({ open }) {
   );
 }
 
-function TreeGroup({ label, count, defaultOpen = false, children }) {
+// Split alphabetized clients into chunks of ~targetSize, but never break a
+// letter across groups — so all "A" clients stay together. Label each group
+// with its letter range ("A–C" or just "A" if only one letter fits).
+function makeAlphaGroups(clients, targetSize = 20) {
+  if (clients.length === 0) return [];
+  const sorted = [...clients].sort((a, b) => a.name.localeCompare(b.name));
+  const firstLetter = (s) => (s[0] || '#').toUpperCase();
+
+  const groups = [];
+  let bucket = [];
+  let bucketFirst = null;
+  let bucketLast = null;
+
+  for (let i = 0; i < sorted.length; i++) {
+    const c = sorted[i];
+    const letter = firstLetter(c.name);
+    if (bucketFirst === null) bucketFirst = letter;
+    bucketLast = letter;
+    bucket.push(c);
+
+    const nextLetter = i + 1 < sorted.length ? firstLetter(sorted[i + 1].name) : null;
+    const atLetterBoundary = nextLetter === null || nextLetter !== letter;
+
+    if (bucket.length >= targetSize && atLetterBoundary) {
+      groups.push({
+        label: bucketFirst === bucketLast ? bucketFirst : `${bucketFirst}–${bucketLast}`,
+        list: bucket,
+      });
+      bucket = [];
+      bucketFirst = null;
+      bucketLast = null;
+    }
+  }
+
+  if (bucket.length > 0) {
+    groups.push({
+      label: bucketFirst === bucketLast ? bucketFirst : `${bucketFirst}–${bucketLast}`,
+      list: bucket,
+    });
+  }
+
+  return groups;
+}
+
+function TreeGroup({ label, count, defaultOpen = false, forceOpen, children }) {
   const [open, setOpen] = useState(defaultOpen);
+  const effectiveOpen = forceOpen !== undefined ? forceOpen : open;
   return (
     <div className="mb-1">
       <button
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          if (forceOpen === undefined) setOpen((v) => !v);
+        }}
         className="w-full flex items-center gap-2 px-3 py-2 text-left rounded-md text-navy-700 hover:bg-navy-50 transition"
       >
-        <Chevron open={open} />
+        <Chevron open={effectiveOpen} />
         <span className="text-[11px] font-bold uppercase tracking-wider flex-1">{label}</span>
         <span className="text-[11px] text-navy-400 tabular-nums">{count}</span>
       </button>
       <div
-        className={`overflow-hidden transition-all duration-200 ${open ? 'max-h-[10000px]' : 'max-h-0'}`}
+        className={`overflow-hidden transition-all duration-200 ${effectiveOpen ? 'max-h-[10000px]' : 'max-h-0'}`}
       >
         <div className="pl-4 pr-1 py-1 space-y-0.5">{children}</div>
       </div>
@@ -45,6 +92,14 @@ export default function Sidebar() {
   const [searchParams] = useSearchParams();
   const month = searchParams.get('month') || '';
   const [newClientOpen, setNewClientOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const searching = query.trim().length > 0;
+
+  const filteredClients = useMemo(() => {
+    if (!searching) return clients;
+    const q = query.trim().toLowerCase();
+    return clients.filter((c) => c.name.toLowerCase().includes(q));
+  }, [clients, query, searching]);
 
   const activeClientId = useMemo(() => {
     const m = location.pathname.match(/^\/clients\/([^/]+)/);
@@ -53,10 +108,14 @@ export default function Sidebar() {
 
   const suffix = month ? `?month=${month}` : '';
 
+  const alphaGroups = useMemo(() => {
+    return makeAlphaGroups(filteredClients, 20);
+  }, [filteredClients]);
+
   const byStaff = useMemo(() => {
     const staffMap = new Map(staff.map((s) => [s.id, s]));
     const groups = new Map();
-    for (const c of clients) {
+    for (const c of filteredClients) {
       const sid = c.responsible_staff_id || '__unassigned__';
       if (!groups.has(sid)) groups.set(sid, []);
       groups.get(sid).push(c);
@@ -71,7 +130,7 @@ export default function Sidebar() {
       out.push({ sid, label, list: list.sort((a, b) => a.name.localeCompare(b.name)) });
     }
     return out.sort((a, b) => a.label.localeCompare(b.label));
-  }, [clients, staff]);
+  }, [filteredClients, staff]);
 
   const ClientLink = ({ c }) => (
     <Link
@@ -90,7 +149,7 @@ export default function Sidebar() {
   return (
     <aside className="w-72 shrink-0 bg-white border-r border-navy-100 overflow-y-auto">
       <div className="px-4 pt-5 pb-3">
-        <div className="flex items-baseline justify-between">
+        <div className="flex items-baseline justify-between mb-2">
           <div className="text-[11px] font-bold uppercase tracking-wider text-navy-400">Clients</div>
           {isAdmin && (
             <button
@@ -101,26 +160,88 @@ export default function Sidebar() {
             </button>
           )}
         </div>
+        <div className="relative">
+          <svg
+            className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-navy-300"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            <path
+              fillRule="evenodd"
+              d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.45 4.39l3.08 3.08a.75.75 0 11-1.06 1.06l-3.08-3.08A7 7 0 012 9z"
+              clipRule="evenodd"
+            />
+          </svg>
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search clients…"
+            className="w-full pl-8 pr-8 py-1.5 text-sm rounded-md border border-navy-200 focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-teal-400 text-navy-700 placeholder-navy-300"
+          />
+          {searching && (
+            <button
+              onClick={() => setQuery('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 flex items-center justify-center rounded-full text-navy-400 hover:text-navy-700 hover:bg-navy-100"
+              title="Clear"
+            >
+              ×
+            </button>
+          )}
+        </div>
+        {searching && (
+          <div className="text-[11px] text-navy-400 mt-1.5 px-1">
+            {filteredClients.length} match{filteredClients.length === 1 ? '' : 'es'}
+          </div>
+        )}
       </div>
 
       <div className="px-2 pb-6">
-        <TreeGroup label="All Clients" count={clients.length} defaultOpen>
-          {clients.map((c) => (
-            <ClientLink key={c.id} c={c} />
+        <TreeGroup
+          label="All Clients"
+          count={filteredClients.length}
+          defaultOpen
+          forceOpen={searching ? true : undefined}
+        >
+          {alphaGroups.map((g) => (
+            <TreeGroup
+              key={g.label}
+              label={g.label}
+              count={g.list.length}
+              forceOpen={searching ? true : undefined}
+            >
+              {g.list.map((c) => (
+                <ClientLink key={c.id} c={c} />
+              ))}
+            </TreeGroup>
           ))}
         </TreeGroup>
 
-        <div className="mt-3 mb-1 px-3 text-[10px] font-bold uppercase tracking-wider text-navy-300">
-          By Employee
-        </div>
-
-        {byStaff.map((g) => (
-          <TreeGroup key={g.sid} label={g.label} count={g.list.length}>
-            {g.list.map((c) => (
-              <ClientLink key={c.id} c={c} />
+        {byStaff.length > 0 && (
+          <>
+            <div className="mt-3 mb-1 px-3 text-[10px] font-bold uppercase tracking-wider text-navy-300">
+              By Employee
+            </div>
+            {byStaff.map((g) => (
+              <TreeGroup
+                key={g.sid}
+                label={g.label}
+                count={g.list.length}
+                forceOpen={searching ? true : undefined}
+              >
+                {g.list.map((c) => (
+                  <ClientLink key={c.id} c={c} />
+                ))}
+              </TreeGroup>
             ))}
-          </TreeGroup>
-        ))}
+          </>
+        )}
+
+        {searching && filteredClients.length === 0 && (
+          <div className="px-4 py-6 text-center text-xs text-navy-400 italic">
+            No clients match "{query}"
+          </div>
+        )}
       </div>
 
       <ClientFormModal
