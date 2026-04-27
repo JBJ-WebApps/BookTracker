@@ -1,19 +1,8 @@
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { monthOptions, todayMonthParam } from '../lib/months';
-
-const MONTH_OPTS = monthOptions(2024, 2027);
 
 export default function TopBar() {
   const { profile, signOut, isAdmin } = useAuth();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const month = searchParams.get('month') || todayMonthParam();
-
-  const onMonthChange = (e) => {
-    const next = new URLSearchParams(searchParams);
-    next.set('month', e.target.value);
-    setSearchParams(next);
-  };
 
   return (
     <header className="h-16 bg-navy-600 text-white flex items-center px-6 shadow-lg relative z-20">
@@ -37,21 +26,6 @@ export default function TopBar() {
       </nav>
 
       <div className="ml-auto flex items-center gap-4">
-        <label className="flex items-center gap-2 text-sm">
-          <span className="text-navy-200">Month</span>
-          <select
-            value={month}
-            onChange={onMonthChange}
-            className="bg-navy-700 border border-navy-500 rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-teal-400"
-          >
-            {MONTH_OPTS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-        </label>
-
-        <div className="h-8 w-px bg-navy-500" />
-
         <div className="flex items-center gap-3">
           <div className="text-right leading-tight">
             <div className="text-sm font-medium">{profile?.full_name || profile?.email || 'User'}</div>
