@@ -8,6 +8,7 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isRecovering, setIsRecovering] = useState(false);
 
   const loadProfile = useCallback(async (userId) => {
     if (!userId) {
@@ -37,8 +38,9 @@ export function AuthProvider({ children }) {
       else setLoading(false);
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
+      if (event === 'PASSWORD_RECOVERY') setIsRecovering(true);
       if (session?.user) loadProfile(session.user.id);
       else setProfile(null);
     });
@@ -67,6 +69,8 @@ export function AuthProvider({ children }) {
     profile,
     isAdmin: profile?.role === 'admin',
     loading,
+    isRecovering,
+    clearRecovering: () => setIsRecovering(false),
     signIn,
     signOut,
   };
