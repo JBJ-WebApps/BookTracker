@@ -162,19 +162,14 @@ export default function ClientDetailPage() {
 
       {emailList.length > 0 && (
         <div className="bg-white rounded-xl border border-navy-100 shadow-card px-5 py-4">
-          <div className="flex items-center justify-between gap-3 mb-2">
-            <div className="text-[11px] font-bold uppercase tracking-wider text-navy-400">
-              Client emails
-            </div>
-            <a
-              href={mailtoHref}
-              className="inline-flex items-center gap-1.5 rounded-md bg-teal-500 hover:bg-teal-600 text-white text-xs font-semibold px-3 py-1.5"
-              title={`New email · subject "${fsSubject}"`}
-            >
-              ✉ Email {MONTHS_LONG[month1 - 1]} statements
-            </a>
+          <div className="text-[11px] font-bold uppercase tracking-wider text-navy-400 mb-2">
+            Client emails
           </div>
-          <a href={mailtoHref} className="text-sm text-teal-700 hover:underline break-words">
+          <a
+            href={mailtoHref}
+            className="text-sm text-teal-700 hover:underline break-words"
+            title={`New email · subject "${fsSubject}"`}
+          >
             {emailList.join(', ')}
           </a>
         </div>
