@@ -48,7 +48,11 @@ export default function ClientDetailPage() {
     .split(',')
     .map((e) => e.trim())
     .filter(Boolean);
-  const fsSubject = `${MONTHS_LONG[month1 - 1]} ${year} Financial Statements`;
+  // Financial Statements are sent for the PRIOR month (in June you send May's),
+  // so default the subject to the month before the one being viewed.
+  const fsMonth1 = month1 === 1 ? 12 : month1 - 1;
+  const fsYear = month1 === 1 ? year - 1 : year;
+  const fsSubject = `${MONTHS_LONG[fsMonth1 - 1]} ${fsYear} Financial Statements`;
   const mailtoHref = emailList.length
     ? `mailto:${emailList.join(',')}?subject=${encodeURIComponent(fsSubject)}`
     : null;
@@ -172,6 +176,9 @@ export default function ClientDetailPage() {
           >
             {emailList.join(', ')}
           </a>
+          <div className="mt-1 text-[11px] text-navy-400">
+            Opens a new email · subject “{fsSubject}”
+          </div>
         </div>
       )}
 
