@@ -4,7 +4,7 @@ import { useClientDetail } from '../hooks/useClientDetail';
 import { useStaff } from '../hooks/useClients';
 import { useServiceTypes, useClientServices } from '../hooks/useServices';
 import { useAuth } from '../context/AuthContext';
-import { parseMonthParam, todayMonthParam } from '../lib/months';
+import { parseMonthParam, todayMonthParam, MONTHS_LONG } from '../lib/months';
 import { fmtCurrency } from '../lib/format';
 import MonthGrid from '../components/MonthGrid';
 import ClientFormModal from '../components/ClientFormModal';
@@ -14,7 +14,7 @@ export default function ClientDetailPage() {
   const { isAdmin, profile } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const monthParam = searchParams.get('month') || todayMonthParam();
-  const { year } = parseMonthParam(monthParam) || parseMonthParam(todayMonthParam());
+  const { year, month1 } = parseMonthParam(monthParam) || parseMonthParam(todayMonthParam());
 
   const { client, accounts, accountMonths, clientMonths, loading, refresh } = useClientDetail(id, year);
   const staff = useStaff();
@@ -43,6 +43,15 @@ export default function ClientDetailPage() {
 
   const resp = staff.find((s) => s.id === client.responsible_staff_id);
   const asst = staff.find((s) => s.id === client.assistant_staff_id);
+
+  const emailList = (client.emails || '')
+    .split(',')
+    .map((e) => e.trim())
+    .filter(Boolean);
+  const fsSubject = `${MONTHS_LONG[month1 - 1]} ${year} Financial Statements`;
+  const mailtoHref = emailList.length
+    ? `mailto:${emailList.join(',')}?subject=${encodeURIComponent(fsSubject)}`
+    : null;
 
   const changeYear = (delta) => {
     const next = new URLSearchParams(searchParams);
@@ -150,6 +159,26 @@ export default function ClientDetailPage() {
           </div>
         )}
       </div>
+
+      {emailList.length > 0 && (
+        <div className="bg-white rounded-xl border border-navy-100 shadow-card px-5 py-4">
+          <div className="flex items-center justify-between gap-3 mb-2">
+            <div className="text-[11px] font-bold uppercase tracking-wider text-navy-400">
+              Client emails
+            </div>
+            <a
+              href={mailtoHref}
+              className="inline-flex items-center gap-1.5 rounded-md bg-teal-500 hover:bg-teal-600 text-white text-xs font-semibold px-3 py-1.5"
+              title={`New email · subject "${fsSubject}"`}
+            >
+              ✉ Email {MONTHS_LONG[month1 - 1]} statements
+            </a>
+          </div>
+          <a href={mailtoHref} className="text-sm text-teal-700 hover:underline break-words">
+            {emailList.join(', ')}
+          </a>
+        </div>
+      )}
 
       {client.notes && (
         <div className="bg-gold-50 border border-gold-200 rounded-lg px-4 py-3 text-sm text-navy-700">

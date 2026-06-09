@@ -60,6 +60,7 @@ create table if not exists public.clients (
                           check (frequency in ('monthly','quarterly','annually')),
   platform                text check (platform is null or platform in ('QBO','QBD','Teamviewer','Other')),
   notes                   text,
+  emails                  text,   -- comma-separated client contact emails
   created_at              timestamptz not null default now(),
   updated_at              timestamptz not null default now()
 );

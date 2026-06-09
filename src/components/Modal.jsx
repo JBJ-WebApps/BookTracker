@@ -13,7 +13,11 @@ export default function Modal({ open, onClose, title, children, footer, size = '
 
   if (!open) return null;
 
-  const widthClass = size === 'lg' ? 'max-w-2xl' : size === 'sm' ? 'max-w-sm' : 'max-w-lg';
+  const widthClass =
+    size === 'xl' ? 'max-w-4xl'
+    : size === 'lg' ? 'max-w-2xl'
+    : size === 'sm' ? 'max-w-sm'
+    : 'max-w-lg';
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -27,7 +31,7 @@ export default function Modal({ open, onClose, title, children, footer, size = '
             <h2 className="text-lg font-semibold text-navy-600">{title}</h2>
           </div>
         )}
-        <div className="px-6 py-5">{children}</div>
+        <div className="px-6 py-5 max-h-[75vh] overflow-y-auto">{children}</div>
         {footer && (
           <div className="px-6 pb-5 pt-2 flex items-center justify-end gap-2 border-t border-navy-50">
             {footer}

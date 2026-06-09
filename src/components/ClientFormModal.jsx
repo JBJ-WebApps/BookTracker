@@ -29,6 +29,7 @@ const BLANK = {
   due_to_tax_manager_day: '',
   due_to_tax_manager_note: '',
   platform: '',
+  emails: '',
   notes: '',
   is_archived: false,
 };
@@ -69,6 +70,7 @@ export default function ClientFormModal({ open, onClose, onSaved, existing = nul
         due_to_tax_manager_day: existing.due_to_tax_manager_day ?? '',
         due_to_tax_manager_note: existing.due_to_tax_manager_note ?? '',
         platform: existing.platform ?? '',
+        emails: existing.emails ?? '',
         notes: existing.notes ?? '',
         is_archived: existing.is_archived ?? false,
       });
@@ -98,6 +100,7 @@ export default function ClientFormModal({ open, onClose, onSaved, existing = nul
       due_to_tax_manager_day: form.due_to_tax_manager_day === '' ? null : Number(form.due_to_tax_manager_day),
       due_to_tax_manager_note: form.due_to_tax_manager_note || null,
       platform: form.platform || null,
+      emails: form.emails.trim() || null,
       notes: form.notes || null,
       is_archived: !!form.is_archived,
     };
@@ -143,7 +146,7 @@ export default function ClientFormModal({ open, onClose, onSaved, existing = nul
       open={open}
       onClose={onClose}
       title={isEdit ? 'Edit client' : 'New client'}
-      size="lg"
+      size="xl"
       footer={
         <>
           {isEdit && !form.is_archived && (
@@ -172,7 +175,7 @@ export default function ClientFormModal({ open, onClose, onSaved, existing = nul
           {err}
         </div>
       )}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-3 gap-4">
         <Field label="Client name" wide>
           <input
             value={form.name}
@@ -289,7 +292,17 @@ export default function ClientFormModal({ open, onClose, onSaved, existing = nul
           />
         </Field>
 
-        <div className="col-span-2 border-t border-navy-100 pt-4 mt-1 grid grid-cols-3 gap-4">
+        <Field label="Emails (separate multiple with commas)" wide>
+          <textarea
+            value={form.emails}
+            onChange={(e) => update('emails', e.target.value)}
+            className={inputClass}
+            rows={2}
+            placeholder="owner@client.com, controller@client.com"
+          />
+        </Field>
+
+        <div className="col-span-full border-t border-navy-100 pt-4 mt-1 grid grid-cols-3 gap-4">
           <div className="col-span-2">
             <div className="text-xs font-semibold text-navy-500 mb-2 uppercase tracking-wider">
               Services this client pays for
@@ -380,7 +393,7 @@ const inputClass =
 
 function Field({ label, wide, children }) {
   return (
-    <label className={`block ${wide ? 'col-span-2' : ''}`}>
+    <label className={`block ${wide ? 'col-span-full' : ''}`}>
       <div className="text-xs font-semibold text-navy-500 mb-1">{label}</div>
       {children}
     </label>
