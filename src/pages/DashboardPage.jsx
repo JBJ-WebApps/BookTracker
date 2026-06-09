@@ -20,6 +20,7 @@ export default function DashboardPage() {
   const [cmByClient, setCmByClient] = useState({});
   const [fsByClient, setFsByClient] = useState({}); // client_id -> boolean[12] of fs_printed per month of the displayed year
   const [filter, setFilter] = useState('mine'); // 'mine' | 'all'
+  const [tick, setTick] = useState(0); // bumped by realtime events to force a re-load
 
   useEffect(() => {
     if (clients.length === 0) {
@@ -68,7 +69,25 @@ export default function DashboardPage() {
         setAmByAccount({});
       }
     })();
-  }, [clients, period]);
+  }, [clients, period, tick]);
+
+  // Live updates: re-load when any team member changes account/client months.
+  useEffect(() => {
+    let t;
+    const ping = () => {
+      clearTimeout(t);
+      t = setTimeout(() => setTick((n) => n + 1), 300); // debounce bursts into one re-load
+    };
+    const channel = supabase
+      .channel('dashboard-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'account_months' }, ping)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'client_months' }, ping)
+      .subscribe();
+    return () => {
+      clearTimeout(t);
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const visibleClients = useMemo(() => {
     if (filter === 'mine' && profile?.id) {

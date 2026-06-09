@@ -53,5 +53,35 @@ export function useClientDetail(clientId, year) {
     refresh();
   }, [refresh]);
 
+  // Live updates: when any team member changes this client's data, re-fetch.
+  // (account_months has no client_id column, so we listen broadly and let
+  // refresh re-query only this client — a cheap, harmless re-read.)
+  useEffect(() => {
+    if (!clientId) return;
+    let t;
+    const ping = () => {
+      clearTimeout(t);
+      t = setTimeout(refresh, 250); // debounce bursts of edits into one re-fetch
+    };
+    const channel = supabase
+      .channel(`client-detail-${clientId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'account_months' }, ping)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'client_months', filter: `client_id=eq.${clientId}` },
+        ping
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'accounts', filter: `client_id=eq.${clientId}` },
+        ping
+      )
+      .subscribe();
+    return () => {
+      clearTimeout(t);
+      supabase.removeChannel(channel);
+    };
+  }, [clientId, refresh]);
+
   return { client, accounts, accountMonths, clientMonths, loading, refresh };
 }
