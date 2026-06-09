@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 
 export default function ResetPasswordPage() {
-  const { user, loading, clearRecovering } = useAuth();
+  const { user, loading, clearRecovering, mustChangePassword, refreshProfile } = useAuth();
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);
@@ -24,11 +24,25 @@ export default function ResetPasswordPage() {
     }
     setBusy(true);
     const { error } = await supabase.auth.updateUser({ password });
-    setBusy(false);
     if (error) {
+      setBusy(false);
       setErr(error.message);
       return;
     }
+    // Clear the first-login flag so the app stops redirecting back here.
+    if (mustChangePassword && user) {
+      const { error: flagErr } = await supabase
+        .from('profiles')
+        .update({ must_change_password: false })
+        .eq('id', user.id);
+      if (flagErr) {
+        setBusy(false);
+        setErr(flagErr.message);
+        return;
+      }
+      await refreshProfile();
+    }
+    setBusy(false);
     clearRecovering();
     navigate('/', { replace: true });
   };
@@ -49,11 +63,19 @@ export default function ResetPasswordPage() {
               alt="Johns Benson & Johns CPAs"
               className="h-24 w-auto mb-4"
             />
-            <h1 className="text-2xl font-bold text-navy-600">Set a new password</h1>
+            <h1 className="text-2xl font-bold text-navy-600">
+              {mustChangePassword ? 'Welcome — set your password' : 'Set a new password'}
+            </h1>
             <p className="text-sm text-navy-400 mt-1">
               {user?.email ? `for ${user.email}` : 'Pick something only you know'}
             </p>
           </div>
+
+          {mustChangePassword && (
+            <div className="mb-4 text-sm text-navy-600 bg-teal-50 border border-teal-200 rounded-md px-3 py-2">
+              Please replace your temporary password with one only you know before continuing.
+            </div>
+          )}
 
           {!loading && !user && (
             <div className="mb-4 text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">

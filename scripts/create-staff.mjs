@@ -63,13 +63,14 @@ async function findExistingByEmail(email) {
   return data.users.find((u) => u.email?.toLowerCase() === email.toLowerCase()) || null;
 }
 
-async function ensureProfile(userId, fullName, email) {
+async function ensureProfile(userId, fullName, email, mustChangePassword = false) {
   // The handle_new_user trigger creates a profile row, but full_name may be
   // empty if user_metadata wasn't set at create time. Force-update here.
-  const { error } = await supabase
-    .from('profiles')
-    .update({ full_name: fullName, email })
-    .eq('id', userId);
+  // Only stamp must_change_password for freshly created users so we don't
+  // re-flag someone who has already set their own password.
+  const patch = { full_name: fullName, email };
+  if (mustChangePassword) patch.must_change_password = true;
+  const { error } = await supabase.from('profiles').update(patch).eq('id', userId);
   if (error) console.warn(`  profile update warning for ${email}: ${error.message}`);
 }
 
@@ -100,7 +101,7 @@ async function createStaff() {
     }
 
     const userId = data.user.id;
-    await ensureProfile(userId, s.fullName, s.email);
+    await ensureProfile(userId, s.fullName, s.email, true);
 
     console.log(`CREATED: ${s.email}`);
     credentials.push({ ...s, password });
@@ -117,7 +118,8 @@ async function createStaff() {
       '',
       'IMPORTANT:',
       ' - These passwords were auto-generated. Hand them to each employee privately.',
-      ' - They should change their password on first login (Forgot password? on the login screen).',
+      ' - They log in with this temp password, then are required to set their own',
+      '   password before the app lets them in (first-login prompt).',
       ' - This file is gitignored and lives only on this machine.',
       '',
       ...credentials.map((c) => `${c.fullName.padEnd(28)}  ${c.email.padEnd(26)}  ${c.password}`),

@@ -17,7 +17,7 @@ export function AuthProvider({ children }) {
     }
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, full_name, email, role')
+      .select('id, full_name, email, role, must_change_password')
       .eq('id', userId)
       .maybeSingle();
     if (error) {
@@ -63,14 +63,20 @@ export function AuthProvider({ children }) {
     await supabase.auth.signOut();
   }, []);
 
+  const refreshProfile = useCallback(async () => {
+    if (session?.user) await loadProfile(session.user.id);
+  }, [session, loadProfile]);
+
   const value = {
     session,
     user: session?.user ?? null,
     profile,
     isAdmin: profile?.role === 'admin',
+    mustChangePassword: profile?.must_change_password === true,
     loading,
     isRecovering,
     clearRecovering: () => setIsRecovering(false),
+    refreshProfile,
     signIn,
     signOut,
   };

@@ -15,6 +15,7 @@ create table if not exists public.profiles (
   full_name     text not null default '',
   email         text not null default '',
   role          text not null default 'employee' check (role in ('employee','admin')),
+  must_change_password boolean not null default false,
   created_at    timestamptz not null default now()
 );
 
