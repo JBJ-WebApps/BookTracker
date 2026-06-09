@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useClients, useStaff } from '../hooks/useClients';
 import { useAuth } from '../context/AuthContext';
-import { parseMonthParam, todayMonthParam, periodMonthString, MONTHS_LONG } from '../lib/months';
+import { parseMonthParam, todayMonthParam, periodMonthString, MONTHS, MONTHS_LONG } from '../lib/months';
 import { fmtCurrency, fmtHours } from '../lib/format';
 
 export default function DashboardPage() {
@@ -18,6 +18,7 @@ export default function DashboardPage() {
   const [accountsByClient, setAccountsByClient] = useState({});
   const [amByAccount, setAmByAccount] = useState({});
   const [cmByClient, setCmByClient] = useState({});
+  const [fsByClient, setFsByClient] = useState({}); // client_id -> boolean[12] of fs_printed per month of the displayed year
   const [filter, setFilter] = useState('mine'); // 'mine' | 'all'
 
   useEffect(() => {
@@ -25,22 +26,33 @@ export default function DashboardPage() {
       setAccountsByClient({});
       setAmByAccount({});
       setCmByClient({});
+      setFsByClient({});
       return;
     }
     (async () => {
       const ids = clients.map((c) => c.id);
+      // Load the whole displayed year so the card can show a Jan–Dec F.S.-printed strip
+      const yearPeriods = Array.from({ length: 12 }, (_, i) => periodMonthString(parsed.year, i + 1));
       const [{ data: accts }, { data: cms }] = await Promise.all([
         supabase.from('accounts').select('id, client_id, is_active').in('client_id', ids),
-        supabase.from('client_months').select('*').in('client_id', ids).eq('period_month', period),
+        supabase.from('client_months').select('*').in('client_id', ids).in('period_month', yearPeriods),
       ]);
       const byClient = {};
       for (const a of accts ?? []) {
         (byClient[a.client_id] ||= []).push(a);
       }
       setAccountsByClient(byClient);
-      const cmMap = {};
-      for (const r of cms ?? []) cmMap[r.client_id] = r;
+      const cmMap = {}; // selected-month row, used for WIP / Time / Fee
+      const fsMap = {}; // client_id -> boolean[12]
+      for (const r of cms ?? []) {
+        if (r.period_month === period) cmMap[r.client_id] = r;
+        const m = Number(String(r.period_month).slice(5, 7)); // 1-12
+        if (m >= 1 && m <= 12) {
+          (fsMap[r.client_id] ||= Array(12).fill(false))[m - 1] = !!r.fs_printed;
+        }
+      }
       setCmByClient(cmMap);
+      setFsByClient(fsMap);
 
       const acctIds = (accts ?? []).map((a) => a.id);
       if (acctIds.length) {
@@ -133,6 +145,8 @@ export default function DashboardPage() {
               accounts={accountsByClient[c.id] || []}
               amByAccount={amByAccount}
               cm={cmByClient[c.id]}
+              fsMonths={fsByClient[c.id]}
+              year={parsed.year}
               monthParam={monthParam}
               staff={staff}
             />
@@ -143,7 +157,7 @@ export default function DashboardPage() {
   );
 }
 
-function ClientCard({ client, accounts, amByAccount, cm, monthParam, staff }) {
+function ClientCard({ client, accounts, amByAccount, cm, fsMonths, year, monthParam, staff }) {
   const active = accounts.filter((a) => a.is_active);
   const total = active.length;
   const done = active.filter((a) => amByAccount[a.id]?.status === 'done').length;
@@ -201,15 +215,24 @@ function ClientCard({ client, accounts, amByAccount, cm, monthParam, staff }) {
         <Stat label="Fee" value={fmtCurrency(cm?.monthly_fee ?? client.monthly_fee)} />
       </div>
 
-      <div className="mt-3 flex items-center gap-2 text-[11px] text-navy-400">
-        {cm?.fs_printed ? (
-          <span className="text-teal-600 font-medium">✓ F.S. printed</span>
-        ) : (
-          <span>F.S. not printed</span>
-        )}
-        {client.due_to_tax_manager_day ? (
-          <span className="ml-auto">Due: {client.due_to_tax_manager_day}th</span>
-        ) : null}
+      <div className="mt-3">
+        <div className="flex items-center justify-between text-[10px] text-navy-400 mb-1">
+          <span className="font-semibold uppercase tracking-wider">F.S. printed · {year}</span>
+          {client.due_to_tax_manager_day ? (
+            <span>Due: {client.due_to_tax_manager_day}th</span>
+          ) : null}
+        </div>
+        <div className="flex flex-wrap gap-x-1.5 gap-y-0.5 text-[10px] font-bold uppercase tracking-wide tabular-nums">
+          {MONTHS.map((m, i) => (
+            <span
+              key={i}
+              className={fsMonths?.[i] ? 'text-green-600' : 'text-red-500'}
+              title={`${MONTHS_LONG[i]} ${year} — ${fsMonths?.[i] ? 'printed' : 'not printed'}`}
+            >
+              {m}
+            </span>
+          ))}
+        </div>
       </div>
     </Link>
   );
