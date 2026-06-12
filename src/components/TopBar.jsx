@@ -23,6 +23,9 @@ export default function TopBar() {
         {isAdmin && (
           <Link to="/audit" className="hover:text-teal-200 transition">Audit Log</Link>
         )}
+        {isAdmin && (
+          <Link to="/users" className="hover:text-teal-200 transition">Users</Link>
+        )}
       </nav>
 
       <div className="ml-auto flex items-center gap-4">
