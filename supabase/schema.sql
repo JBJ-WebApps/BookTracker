@@ -297,9 +297,10 @@ alter table public.audit_log      enable row level security;
 
 -- ---- profiles -----------------------------------------------------------
 drop policy if exists "profiles self read"  on public.profiles;
-create policy "profiles self read"
+drop policy if exists "profiles read all authed" on public.profiles;
+create policy "profiles read all authed"
   on public.profiles for select
-  using (id = auth.uid() or public.is_admin());
+  using (auth.uid() is not null);
 
 drop policy if exists "profiles self update" on public.profiles;
 create policy "profiles self update"

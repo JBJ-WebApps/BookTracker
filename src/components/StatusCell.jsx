@@ -28,7 +28,7 @@ function glyphFor(status) {
   }
 }
 
-export default function StatusCell({ accountId, periodMonth, existing, displayName, onChange }) {
+export default function StatusCell({ accountId, periodMonth, existing, displayName, onChange, canEdit = true }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const ref = useRef(null);
@@ -95,10 +95,12 @@ export default function StatusCell({ accountId, periodMonth, existing, displayNa
   return (
     <div ref={ref} className="relative inline-block">
       <button
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => { if (canEdit) setOpen((v) => !v); }}
         disabled={busy}
-        title={tooltip}
+        title={canEdit ? tooltip : `${tooltip} (view only)`}
         className={`h-7 w-7 rounded-md flex items-center justify-center border-2 transition ${
+          canEdit ? 'cursor-pointer' : 'cursor-default'
+        } ${
           status === 'done'
             ? 'bg-teal-50 border-teal-400'
             : status === 'missing'
@@ -107,7 +109,9 @@ export default function StatusCell({ accountId, periodMonth, existing, displayNa
             ? 'bg-navy-100 border-navy-300'
             : status === 'not_applicable'
             ? 'bg-navy-50 border-navy-200'
-            : 'bg-white border-navy-300 hover:border-teal-400 hover:bg-teal-50/40'
+            : canEdit
+            ? 'bg-white border-navy-300 hover:border-teal-400 hover:bg-teal-50/40'
+            : 'bg-white border-navy-200'
         }`}
       >
         {glyphFor(status)}

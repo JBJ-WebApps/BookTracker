@@ -128,6 +128,7 @@ export default function MonthGrid({
                             existing={row}
                             displayName={displayName}
                             onChange={onChange}
+                            canEdit={canEdit}
                           />
                         </td>
                       );
@@ -158,13 +159,17 @@ export default function MonthGrid({
                 return (
                   <td key={i} className="px-1 py-1 text-center">
                     <button
-                      onClick={() => updateClientMonth(i + 1, { fs_printed: !on })}
+                      onClick={() => { if (canEdit) updateClientMonth(i + 1, { fs_printed: !on }); }}
                       className={`h-7 w-7 rounded-md border-2 transition font-bold ${
+                        canEdit ? 'cursor-pointer' : 'cursor-default'
+                      } ${
                         on
                           ? 'bg-teal-500 text-white border-teal-500'
-                          : 'bg-white border-navy-300 hover:border-teal-400 hover:bg-teal-50/40'
+                          : canEdit
+                          ? 'bg-white border-navy-300 hover:border-teal-400 hover:bg-teal-50/40'
+                          : 'bg-white border-navy-200'
                       }`}
-                      title={on ? 'Printed' : 'Not printed'}
+                      title={on ? 'Printed' : canEdit ? 'Not printed' : 'Not printed (view only)'}
                     >
                       {on ? '✓' : ''}
                     </button>
@@ -179,6 +184,7 @@ export default function MonthGrid({
               year={year}
               cmByMonth={cmByMonth}
               field="total_wip"
+              canEdit={canEdit}
               format={fmtCurrency}
               parse={(v) => Number(v) || 0}
               updateClientMonth={updateClientMonth}
@@ -189,6 +195,7 @@ export default function MonthGrid({
               year={year}
               cmByMonth={cmByMonth}
               field="total_time_hours"
+              canEdit={canEdit}
               format={fmtHours}
               parse={(v) => Number(v) || 0}
               updateClientMonth={updateClientMonth}
@@ -238,7 +245,7 @@ export default function MonthGrid({
   );
 }
 
-function EditableSummaryRow({ label, year, cmByMonth, field, format, parse, updateClientMonth }) {
+function EditableSummaryRow({ label, year, cmByMonth, field, format, parse, updateClientMonth, canEdit }) {
   const [editing, setEditing] = useState(null); // { month1, value }
 
   const startEdit = (month1, current) => setEditing({ month1, value: current ?? '' });
@@ -279,8 +286,10 @@ function EditableSummaryRow({ label, year, cmByMonth, field, format, parse, upda
               />
             ) : (
               <button
-                onClick={() => startEdit(month1, value)}
-                className="text-xs font-semibold text-navy-700 hover:text-teal-600 hover:bg-white rounded px-1 py-1 w-full tabular-nums"
+                onClick={() => { if (canEdit) startEdit(month1, value); }}
+                className={`text-xs font-semibold text-navy-700 rounded px-1 py-1 w-full tabular-nums ${
+                  canEdit ? 'hover:text-teal-600 hover:bg-white cursor-pointer' : 'cursor-default'
+                }`}
               >
                 {value != null && value !== 0 ? (
                   format(value)

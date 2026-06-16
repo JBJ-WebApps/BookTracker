@@ -87,7 +87,7 @@ function TreeGroup({ label, count, defaultOpen = false, forceOpen, children }) {
 export default function Sidebar() {
   const { clients, refresh } = useClients();
   const staff = useStaff();
-  const { isAdmin } = useAuth();
+  const { isAdmin, profile } = useAuth();
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const month = searchParams.get('month') || '';
@@ -131,6 +131,20 @@ export default function Sidebar() {
     }
     return out.sort((a, b) => a.label.localeCompare(b.label));
   }, [filteredClients, staff]);
+
+  // The logged-in user's own clients (responsible OR assistant) — shown expanded up top.
+  const myClients = useMemo(() => {
+    if (!profile?.id) return [];
+    return filteredClients
+      .filter((c) => c.responsible_staff_id === profile.id || c.assistant_staff_id === profile.id)
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [filteredClients, profile]);
+
+  // Everyone else's groups (drop the current user's own group — it's "My Clients" above).
+  const otherStaffGroups = useMemo(
+    () => byStaff.filter((g) => g.sid !== profile?.id),
+    [byStaff, profile]
+  );
 
   const ClientLink = ({ c }) => (
     <Link
@@ -197,34 +211,49 @@ export default function Sidebar() {
       </div>
 
       <div className="px-2 pb-6">
-        <TreeGroup
-          label="All Clients"
-          count={filteredClients.length}
-          defaultOpen
-          forceOpen={searching ? true : undefined}
-        >
-          {alphaGroups.map((g) => (
-            <TreeGroup
-              key={g.label}
-              label={g.label}
-              count={g.list.length}
-              forceOpen={searching ? true : undefined}
-            >
-              {g.list.map((c) => (
+        {/* The logged-in user's own clients, always expanded — no click needed. */}
+        {!searching && myClients.length > 0 && (
+          <div className="mb-3">
+            <div className="px-3 py-2 flex items-center gap-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-teal-700 flex-1">
+                My Clients
+              </span>
+              <span className="text-[11px] text-navy-400 tabular-nums">{myClients.length}</span>
+            </div>
+            <div className="pl-4 pr-1 py-1 space-y-0.5">
+              {myClients.map((c) => (
                 <ClientLink key={c.id} c={c} />
               ))}
-            </TreeGroup>
-          ))}
-        </TreeGroup>
-
-        {byStaff.length > 0 && (
-          <>
-            <div className="mt-3 mb-1 px-3 text-[10px] font-bold uppercase tracking-wider text-navy-300">
-              By Employee
             </div>
-            {byStaff.map((g) => (
+          </div>
+        )}
+
+        {/* Other employees — view their clients (editing is locked elsewhere). */}
+        {!searching && otherStaffGroups.length > 0 && (
+          <>
+            <div className="mt-2 mb-1 px-3 text-[10px] font-bold uppercase tracking-wider text-navy-300">
+              Other Employees
+            </div>
+            {otherStaffGroups.map((g) => (
+              <TreeGroup key={g.sid} label={g.label} count={g.list.length}>
+                {g.list.map((c) => (
+                  <ClientLink key={c.id} c={c} />
+                ))}
+              </TreeGroup>
+            ))}
+          </>
+        )}
+
+        {/* All clients, alphabetized — a browse-everything section at the bottom. */}
+        <div className="mt-2">
+          <TreeGroup
+            label="All Clients"
+            count={filteredClients.length}
+            forceOpen={searching ? true : undefined}
+          >
+            {alphaGroups.map((g) => (
               <TreeGroup
-                key={g.sid}
+                key={g.label}
                 label={g.label}
                 count={g.list.length}
                 forceOpen={searching ? true : undefined}
@@ -234,8 +263,8 @@ export default function Sidebar() {
                 ))}
               </TreeGroup>
             ))}
-          </>
-        )}
+          </TreeGroup>
+        </div>
 
         {searching && filteredClients.length === 0 && (
           <div className="px-4 py-6 text-center text-xs text-navy-400 italic">
