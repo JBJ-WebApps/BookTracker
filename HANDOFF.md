@@ -49,4 +49,25 @@ Document/Portal API (from a Netlify serverless function, like the existing
 **Next step:** Scott emailed the firm's CCH rep requesting minimum API/sandbox access. Unknowns
 to confirm with CCH: exact endpoints, OAuth setup, API pricing/tier, and whether the client
 "documents ready" email can be triggered via API (make-or-break for full automation).
-When CCH replies, plan the integration from there.
+
+### Scaffold already built (2026-06-13) — dark, behind two flags
+The full pipeline is in place and works end-to-end against a MOCK provider. Nothing is visible
+to users until enabled. Pieces:
+- **DB:** `supabase/migrations/0010_statement_publications.sql` — `statement_publications`
+  tracking table + private `statements` storage bucket + RLS. **Not yet applied** (manual step).
+- **Function:** `netlify/functions/publish-statement.js` — auth-checks caller, loads the row,
+  calls `provider.publish()`, writes status. Contains the **provider seam**: `mockProvider`
+  (active) + `cchProvider` stub + `getCchToken()` stub, switched by `CCH_ENABLED`.
+- **Frontend:** `src/lib/statements.js` (upload to storage, upsert row, trigger publish, signed
+  URLs) + `src/components/StatementsPanel.jsx` (per-month upload + status + Publish), rendered on
+  `ClientDetailPage` only when `VITE_STATEMENTS_ENABLED === 'true'`.
+
+**To dry-run the mock now:** apply migration 0010 in Supabase SQL Editor, set
+`VITE_STATEMENTS_ENABLED=true` in Netlify, redeploy. Upload a PDF on a client → Publish → status
+goes to "Published" (simulated). Carolyn is unaffected while the flag is off.
+
+**To stitch up CCH when keys arrive (only these change):**
+1. Implement `cchProvider.publish()` + `getCchToken()` in `publish-statement.js` (the only TODO).
+2. Decide client→CCH-portal id mapping (likely a new `clients.cch_portal_id` column + migration).
+3. Set `CCH_*` env vars in Netlify (see `.env.example`) and `CCH_ENABLED=true`.
+No other files should need to change.

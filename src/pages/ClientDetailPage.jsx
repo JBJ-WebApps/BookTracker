@@ -8,6 +8,8 @@ import { parseMonthParam, todayMonthParam, MONTHS_LONG } from '../lib/months';
 import { fmtCurrency } from '../lib/format';
 import MonthGrid from '../components/MonthGrid';
 import ClientFormModal from '../components/ClientFormModal';
+import StatementsPanel from '../components/StatementsPanel';
+import { STATEMENTS_ENABLED } from '../lib/statements';
 
 export default function ClientDetailPage() {
   const { id } = useParams();
@@ -199,6 +201,10 @@ export default function ClientDetailPage() {
         canEdit={canEdit}
         onChange={refresh}
       />
+
+      {STATEMENTS_ENABLED && (
+        <StatementsPanel clientId={client.id} year={year} canEdit={canEdit} userId={profile?.id} />
+      )}
 
       <ClientFormModal
         open={editOpen}
