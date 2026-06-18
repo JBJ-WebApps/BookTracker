@@ -1,14 +1,18 @@
-// Publish a client's monthly financial statement to their portal.
+// Publish a client's monthly financial statement to their SafeSend Exchange portal.
 //
-// This is the SEAM for the CCH Axcess integration. The whole pipeline
-// (upload PDF → record → trigger → status) works today against a MOCK provider.
-// When CCH API access is granted, implement cchProvider.publish() + getCchToken()
-// below, set the CCH_* env vars in Netlify, and set CCH_ENABLED=true. Nothing
-// else in the app needs to change.
+// Pipeline (upload PDF → record → trigger → status) works against a MOCK provider
+// until SafeSend is configured. Flip SAFESEND_ENABLED=true (with the SAFESEND_*
+// vars set) to deliver for real. Nothing else in the app changes.
 //
 // Required env (already set for manage-users): SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
-// Later, for CCH: CCH_ENABLED, CCH_OAUTH_URL, CCH_CLIENT_ID, CCH_CLIENT_SECRET,
-//                 CCH_API_BASE, CCH_SCOPE
+// SafeSend (set in Netlify when going live):
+//   SAFESEND_ENABLED=true
+//   SAFESEND_CLIENT_ID, SAFESEND_CLIENT_SECRET, SAFESEND_AUDIENCE   (Developer section → APIs Client)
+//   SAFESEND_USER_EMAIL        (authorized user; sent as the required x-email header)
+//   SAFESEND_TOKEN_URL         (optional, default https://auth.thomsonreuters.com/oauth/token)
+//   SAFESEND_API_BASE          (optional, default https://api.safesend.com)
+//   SAFESEND_SUBSCRIPTION_KEY  (optional; added as Ocp-Apim-Subscription-Key if set)
+//   SAFESEND_RETENTION_PERIOD  (optional; e.g. OneYear, ThreeYears, SevenYears)
 //
 // POST body: { publicationId }
 
@@ -18,16 +22,27 @@ const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const STATEMENTS_BUCKET = 'statements';
 
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
 function json(statusCode, body) {
   return { statusCode, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) };
 }
 
+function defaultSubject(publication, client) {
+  const [y, m] = String(publication.period_month).split('-');
+  const month = MONTHS[Number(m) - 1] || '';
+  const who = client?.name ? `${client.name} — ` : '';
+  return `${who}${month} ${y} Financial Statements`.trim();
+}
+
 // ---------------------------------------------------------------------------
-// Provider seam — swap implementations via CCH_ENABLED.
+// Provider seam — mock (default) vs SafeSend (SAFESEND_ENABLED=true).
 // ---------------------------------------------------------------------------
 const mockProvider = {
   name: 'mock',
-  // Pretends to publish. Confirms the file exists, then returns a fake doc id.
   async publish({ admin, publication }) {
     if (publication.file_path) {
       const { error } = await admin.storage.from(STATEMENTS_BUCKET).download(publication.file_path);
@@ -37,49 +52,92 @@ const mockProvider = {
   },
 };
 
-const cchProvider = {
-  name: 'cch',
-  async publish({ admin, publication }) {
-    // TODO(CCH): implement once API access is granted. Sketch of the steps:
-    //   const token = await getCchToken();
-    //   const { data: file } = await admin.storage
-    //     .from(STATEMENTS_BUCKET).download(publication.file_path);
-    //   // 1. POST the PDF to the CCH Document API (multipart) -> documentId
-    //   // 2. Publish/link documentId to the client's CCH portal via the Portal API
-    //   //    (needs a mapping from our client -> CCH client/entity id; store it on
-    //   //     clients, e.g. a cch_portal_id column, when we know the shape)
-    //   // 3. (optional) trigger the "documents ready" client email via API
-    //   // 4. return { externalId: documentId }
-    throw new Error(
-      'CCH provider is not implemented yet. Set CCH_ENABLED + credentials and finish cchProvider.publish().'
-    );
+// M2M token cache. SafeSend allows only 40 token requests/hour per client and the
+// token lasts 24h, so we cache and reuse. (Netlify reuses warm instances, so this
+// cache survives across many invocations; worst case we mint a fresh one.)
+let _tokenCache = null; // { value, expiresAt }
+async function getSafeSendToken() {
+  if (_tokenCache && _tokenCache.expiresAt > Date.now() + 60_000) return _tokenCache.value;
+
+  const url = process.env.SAFESEND_TOKEN_URL || 'https://auth.thomsonreuters.com/oauth/token';
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      client_id: process.env.SAFESEND_CLIENT_ID,
+      client_secret: process.env.SAFESEND_CLIENT_SECRET,
+      audience: process.env.SAFESEND_AUDIENCE,
+      grant_type: 'client_credentials',
+    }),
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    throw new Error(`SafeSend token request failed (${res.status}). ${detail}`.trim());
+  }
+  const data = await res.json();
+  const ttlMs = (Number(data.expires_in) || 3600) * 1000;
+  _tokenCache = { value: data.access_token, expiresAt: Date.now() + ttlMs };
+  return _tokenCache.value;
+}
+
+const safeSendProvider = {
+  name: 'safesend',
+  async publish({ admin, publication, client }) {
+    const recipients = String(client?.emails || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (!recipients.length) {
+      throw new Error('This client has no email address on file, so there is no one to deliver to.');
+    }
+
+    // Pull the PDF from storage and Base64-encode it (SafeSend requires Base64).
+    const { data: file, error: dlErr } = await admin.storage
+      .from(STATEMENTS_BUCKET)
+      .download(publication.file_path);
+    if (dlErr) throw new Error(`Could not read the statement file: ${dlErr.message}`);
+    const base64 = Buffer.from(await file.arrayBuffer()).toString('base64');
+
+    const token = await getSafeSendToken();
+    const base = process.env.SAFESEND_API_BASE || 'https://api.safesend.com';
+
+    const headers = {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      // Required on every SafeSend API call: the authorized user's email.
+      'x-email': process.env.SAFESEND_USER_EMAIL || '',
+    };
+    if (process.env.SAFESEND_SUBSCRIPTION_KEY) {
+      headers['Ocp-Apim-Subscription-Key'] = process.env.SAFESEND_SUBSCRIPTION_KEY;
+    }
+
+    const payload = {
+      recipients,
+      subject: defaultSubject(publication, client),
+      body: 'Your financial statements are attached, delivered securely via SafeSend Exchange.',
+      attachments: [base64],
+      correlationId: publication.id,
+    };
+    if (process.env.SAFESEND_RETENTION_PERIOD) {
+      payload.retentionPeriod = process.env.SAFESEND_RETENTION_PERIOD;
+    }
+
+    const res = await fetch(`${base}/sse/v1/message/send/`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '');
+      throw new Error(`SafeSend send failed (${res.status}). ${detail}`.trim());
+    }
+    const out = await res.json().catch(() => ({}));
+    return { externalId: out?.data || publication.id };
   },
 };
 
-// OAuth2 client-credentials token fetch + cache (filled in with CCH).
-let _tokenCache = null; // { token, expiresAt }
-async function getCchToken() {
-  // TODO(CCH): confirm the exact token URL, params, and scope, then implement:
-  //   const res = await fetch(process.env.CCH_OAUTH_URL, {
-  //     method: 'POST',
-  //     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-  //     body: new URLSearchParams({
-  //       grant_type: 'client_credentials',
-  //       client_id: process.env.CCH_CLIENT_ID,
-  //       client_secret: process.env.CCH_CLIENT_SECRET,
-  //       scope: process.env.CCH_SCOPE || '',
-  //     }),
-  //   });
-  //   if (!res.ok) throw new Error(`CCH token request failed: ${res.status}`);
-  //   const data = await res.json();
-  //   _tokenCache = { token: data.access_token, expiresAt: <stamp from data.expires_in> };
-  //   return _tokenCache.token;
-  void _tokenCache;
-  throw new Error('getCchToken not implemented.');
-}
-
 function getProvider() {
-  if (String(process.env.CCH_ENABLED).toLowerCase() === 'true') return cchProvider;
+  if (String(process.env.SAFESEND_ENABLED).toLowerCase() === 'true') return safeSendProvider;
   return mockProvider;
 }
 
@@ -110,7 +168,6 @@ export const handler = async (event) => {
   const publicationId = String(payload.publicationId || '');
   if (!publicationId) return json(400, { error: 'Missing publicationId.' });
 
-  // Load the publication row.
   const { data: publication, error: pErr } = await admin
     .from('statement_publications')
     .select('*')
@@ -120,16 +177,22 @@ export const handler = async (event) => {
   if (!publication) return json(404, { error: 'Publication not found.' });
   if (!publication.file_path) return json(400, { error: 'Upload a statement PDF before publishing.' });
 
+  // Load the client (for recipient emails + subject).
+  const { data: client } = await admin
+    .from('clients')
+    .select('id, name, emails')
+    .eq('id', publication.client_id)
+    .maybeSingle();
+
   const provider = getProvider();
 
-  // Mark in-progress.
   await admin
     .from('statement_publications')
     .update({ status: 'pending', provider: provider.name, error: null })
     .eq('id', publicationId);
 
   try {
-    const { externalId } = await provider.publish({ admin, publication });
+    const { externalId } = await provider.publish({ admin, publication, client });
     const { data: updated, error: uErr } = await admin
       .from('statement_publications')
       .update({

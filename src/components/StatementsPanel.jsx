@@ -82,8 +82,8 @@ export default function StatementsPanel({ clientId, year, canEdit, userId }) {
         </div>
       </div>
       <div className="text-xs text-navy-400 mb-3">
-        Upload each month's financial-statement PDF, then publish it to the client's portal.
-        Portal delivery is in setup — for now “Publish” is recorded and simulated, not yet sent to clients.
+        Upload each month's financial-statement PDF, then publish it to deliver it to the client's
+        SafeSend Exchange portal. Until SafeSend is connected, “Publish” is simulated (nothing is sent).
       </div>
 
       {err && (

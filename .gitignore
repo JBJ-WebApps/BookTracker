@@ -36,5 +36,8 @@ seed/
 *.sw?
 reference/
 
+# SafeSend API reference downloads (PDFs + .NET sample with compiled binaries)
+api docs/
+
 # Local Netlify folder
 .netlify
