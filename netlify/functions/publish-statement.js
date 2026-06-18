@@ -157,7 +157,12 @@ export const handler = async (event) => {
   const token = authHeader.replace(/^Bearer\s+/i, '');
   if (!token) return json(401, { error: 'Not signed in.' });
   const { data: userData, error: userErr } = await admin.auth.getUser(token);
-  if (userErr || !userData?.user) return json(401, { error: 'Your session is invalid or expired.' });
+  if (userErr || !userData?.user) {
+    console.error('publish-statement auth check failed:', userErr?.message, '| url:', SUPABASE_URL);
+    return json(401, {
+      error: `Session check failed: ${userErr?.message || 'no user returned'} (url tail: ${String(SUPABASE_URL).slice(-14)})`,
+    });
+  }
 
   let payload;
   try {
