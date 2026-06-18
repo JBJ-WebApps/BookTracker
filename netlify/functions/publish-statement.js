@@ -31,6 +31,19 @@ function json(statusCode, body) {
   return { statusCode, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) };
 }
 
+// SafeSend wants RetentionPeriod as the numeric enum (0-9), not the text name.
+const RETENTION_MAP = {
+  OneDay: 0, SevenDays: 1, FourteenDays: 2, TwentyOneDays: 3, ThirtyDays: 4,
+  NinetyDays: 5, OneEightyDays: 6, OneYear: 7, ThreeYears: 8, SevenYears: 9,
+};
+function retentionValue() {
+  const raw = process.env.SAFESEND_RETENTION_PERIOD;
+  if (raw == null || raw === '') return 7; // default: OneYear
+  if (raw in RETENTION_MAP) return RETENTION_MAP[raw];
+  const n = Number(raw);
+  return Number.isInteger(n) ? n : 7;
+}
+
 function defaultSubject(publication, client) {
   const [y, m] = String(publication.period_month).split('-');
   const month = MONTHS[Number(m) - 1] || '';
@@ -117,10 +130,8 @@ const safeSendProvider = {
       body: 'Your financial statements are attached, delivered securely via SafeSend Exchange.',
       attachments: [base64],
       correlationId: publication.id,
+      retentionPeriod: retentionValue(),
     };
-    if (process.env.SAFESEND_RETENTION_PERIOD) {
-      payload.retentionPeriod = process.env.SAFESEND_RETENTION_PERIOD;
-    }
 
     const res = await fetch(`${base}/sse/v1/message/send/`, {
       method: 'POST',
