@@ -104,14 +104,14 @@ const safeSendProvider = {
       throw new Error('This client has no email address on file, so there is no one to deliver to.');
     }
 
-    // Pull the PDF from storage and Base64-encode it (SafeSend requires Base64).
-    const { data: file, error: dlErr } = await admin.storage
+    // SafeSend expects each attachment as a fetchable URL (not base64). Hand it a
+    // short-lived signed URL to the PDF in our private bucket; SafeSend downloads it.
+    const { data: signed, error: urlErr } = await admin.storage
       .from(STATEMENTS_BUCKET)
-      .download(publication.file_path);
-    if (dlErr) throw new Error(`Could not read the statement file: ${dlErr.message}`);
-    const base64 = Buffer.from(await file.arrayBuffer()).toString('base64');
-    // SafeSend treats each attachment as a URL — send a data URI, not bare base64.
-    const dataUri = `data:application/pdf;base64,${base64}`;
+      .createSignedUrl(publication.file_path, 3600);
+    if (urlErr || !signed?.signedUrl) {
+      throw new Error(`Could not create a download link: ${urlErr?.message || 'no url returned'}`);
+    }
 
     const token = await getSafeSendToken();
     const base = process.env.SAFESEND_API_BASE || 'https://api.safesend.com';
@@ -130,7 +130,7 @@ const safeSendProvider = {
       recipients,
       subject: defaultSubject(publication, client),
       body: 'Your financial statements are attached, delivered securely via SafeSend Exchange.',
-      attachments: [dataUri],
+      attachments: [signed.signedUrl],
       correlationId: publication.id,
       retentionPeriod: retentionValue(),
     };
