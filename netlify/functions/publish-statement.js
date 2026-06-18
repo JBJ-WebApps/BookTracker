@@ -110,6 +110,8 @@ const safeSendProvider = {
       .download(publication.file_path);
     if (dlErr) throw new Error(`Could not read the statement file: ${dlErr.message}`);
     const base64 = Buffer.from(await file.arrayBuffer()).toString('base64');
+    // SafeSend treats each attachment as a URL — send a data URI, not bare base64.
+    const dataUri = `data:application/pdf;base64,${base64}`;
 
     const token = await getSafeSendToken();
     const base = process.env.SAFESEND_API_BASE || 'https://api.safesend.com';
@@ -128,7 +130,7 @@ const safeSendProvider = {
       recipients,
       subject: defaultSubject(publication, client),
       body: 'Your financial statements are attached, delivered securely via SafeSend Exchange.',
-      attachments: [base64],
+      attachments: [dataUri],
       correlationId: publication.id,
       retentionPeriod: retentionValue(),
     };
