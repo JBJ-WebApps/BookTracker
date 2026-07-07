@@ -129,7 +129,7 @@ const safeSendProvider = {
     const payload = {
       recipients,
       subject: defaultSubject(publication, client),
-      body: 'Your financial statements are attached, delivered securely via SafeSend Exchange.',
+      body: 'Your financial statements from Johns Benson & Johns are attached, delivered securely via SafeSend Exchange.',
       attachments: [signed.signedUrl],
       correlationId: publication.id,
       retentionPeriod: retentionValue(),
@@ -171,10 +171,8 @@ export const handler = async (event) => {
   if (!token) return json(401, { error: 'Not signed in.' });
   const { data: userData, error: userErr } = await admin.auth.getUser(token);
   if (userErr || !userData?.user) {
-    console.error('publish-statement auth check failed:', userErr?.message, '| url:', SUPABASE_URL);
-    return json(401, {
-      error: `Session check failed: ${userErr?.message || 'no user returned'} (url tail: ${String(SUPABASE_URL).slice(-14)})`,
-    });
+    console.error('publish-statement auth check failed:', userErr?.message);
+    return json(401, { error: 'Your session has expired. Please refresh the page and sign in again.' });
   }
 
   let payload;

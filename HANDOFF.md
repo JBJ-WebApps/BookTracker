@@ -80,23 +80,33 @@ the PDF upload is manual — see Phase 2 below for eliminating that.)
 correct `service_role` key from Supabase → Project Settings → API. This had ALSO been silently breaking
 the **Users screen** functions (Add/Reset/Delete via `manage-users.js`) — they should work now too.
 
-### TODOs to finish (pick up here on desktop)
-1. **Sender branding (Scott asked):** email body says *"Scott Kingston has sent you"* — he wants the firm
-   /a bookkeeper, not him. Fix = set `SAFESEND_USER_EMAIL` to Carolyn's (or a dedicated firm/bookkeeping)
-   SafeSend account **that has the API Developer permission**; that account's display name is what shows.
-   To read the firm name instead of a person, set that SafeSend user's display name to the firm or find a
-   SafeSend "send as firm" setting. (No BookTracker code change — it's SafeSend account config + 1 env var.)
-2. **Panel wording cleanup:** `StatementsPanel.jsx` still says "Publish is simulated (nothing is sent)" —
-   it IS sending now. Update that line.
-3. **Diagnostic left in:** `publish-statement.js` returns a verbose auth error ("Session check failed: …
-   url tail …") — fine to keep or trim back.
-4. **Signed-URL expiry** is 1h (`createSignedUrl(..., 3600)`); fine since SafeSend downloads at send time.
-   Bump it only if a client ever reports a broken download link.
-5. ⚠️ **Rotate secrets before real clients:** the SafeSend Client Secret + subscription keys were
+### DONE 2026-07-05 (pushed)
+- **Review-before-send ("walk"):** clicking Publish now opens a review modal (To / Subject / Message /
+  Attachment + Preview PDF) and only "Send securely via SafeSend" actually sends — nothing goes out
+  until confirmed. Chosen over an Outlook draft (which CAN'T carry SafeSend's secure links/branding).
+- **"FS sent {timestamp}"** shown per month once delivered (from `published_at`) + badge relabeled Sent.
+- **Panel wording fixed** (removed the false "Publish is simulated / nothing is sent").
+- **Diagnostic trimmed** in `publish-statement.js` (no longer leaks the Supabase URL tail; clean
+  "session expired" message; detail still server-logged). Email body now names Johns Benson & Johns.
+
+### Sender-name model — DECIDED: firm-wide (Option A)
+`SAFESEND_USER_EMAIL` is a SINGLE global Netlify env var (read once at `publish-statement.js:123` as the
+`x-email` header). It is NOT per-client — every email sends as that one SafeSend user regardless of the
+client's assigned staff. Scott chose **one firm-wide sender**: set that SafeSend user's **display name to
+"Johns Benson & Johns"** so all clients see the firm, never a person. From address is SafeSend's fixed
+`noreply@safesendreturns.com`; reply-to/branding/templates are SafeSend dashboard settings and will match
+the firm's existing SafeSend sends (verify by inspecting a current SafeSend email's headers).
+**MANUAL STEP REMAINING:** rename that SafeSend user's display name in the SafeSend admin (no code change).
+
+### TODOs still open
+1. ⚠️ **Rotate secrets before real clients:** the SafeSend Client Secret + subscription keys were
    screenshotted during setup; regenerate them and update Netlify.
-6. **Quick UX win Scott wants:** a per-client OneDrive **folder link** field shown by the Upload button
-   ("📂 Open FS folder") so Carolyn doesn't dig through folders. (Note: browsers can't pre-aim the file
-   picker — this is just a clickable shortcut to the folder.)
+2. **Set SafeSend display name to the firm** (the manual step above) before any real client send.
+3. **Confirm with SafeSend** that API-sent (Send Message) emails use the same From/branding/templates as
+   the Outlook plug-in sends (should, same account — worth one confirmation before the 1000-client rollout).
+4. **Quick UX win Scott wants:** a per-client OneDrive **folder link** field shown by the Upload button
+   ("📂 Open FS folder") so Carolyn doesn't dig through folders. (Browsers can't pre-aim the file picker —
+   just a clickable shortcut to the folder.)
 
 ### Phase 2 (later) — eliminate the manual upload
 Goal: Carolyn saves the FS PDF to OneDrive in a standard path and BookTracker fetches it automatically.

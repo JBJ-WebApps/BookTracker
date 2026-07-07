@@ -203,7 +203,14 @@ export default function ClientDetailPage() {
       />
 
       {STATEMENTS_ENABLED && (
-        <StatementsPanel clientId={client.id} year={year} canEdit={canEdit} userId={profile?.id} />
+        <StatementsPanel
+          clientId={client.id}
+          clientName={client.name}
+          clientEmails={client.emails}
+          year={year}
+          canEdit={canEdit}
+          userId={profile?.id}
+        />
       )}
 
       <ClientFormModal
