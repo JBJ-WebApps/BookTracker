@@ -10,6 +10,18 @@ for the accounting firm **Johns Benson & Johns**. Tracks monthly bookkeeping com
 per client/account. Admins see everything; employees see clients they're responsible/
 assistant for. Months normalized to `period_month = YYYY-MM-01`.
 
+## ⚙️ Repo location (moved 2026-08-13)
+Codebase was moved OFF OneDrive (it kept causing sync problems) to **`C:\dev\jbj`**. The move is a
+straight folder copy incl. `.git`, `.env`, and `keys/` — git works fine at the new path. NOTE: the
+auto-memory in `~/.claude/projects/<hash>/…` is keyed to the OLD path and will NOT follow the move —
+**this HANDOFF.md (in the repo) is the continuity doc.** At the new location just tell Claude
+"read HANDOFF.md". Run `git status` (should be clean) and `npm install` if `node_modules` wasn't copied.
+
+## ✅ SafeSend statement delivery — FULLY TESTED & GOOD (2026-08-13)
+End-to-end verified: upload PDF → review modal → Send → firm-branded secure email (From "Johns Benson &
+Johns CPAs, P.A. <noreply@safesendreturns.com>", Scott's email nowhere) → "FS sent" stamp → inline View.
+Sender wired to admin@jbjcpas.com; the missing "&" in the body name was fixed. Ready for Carolyn to test.
+
 ## Repo state
 Everything is committed and pushed to `main` — nothing pending. Get oriented with the
 recent git log and these files:
@@ -96,17 +108,43 @@ client's assigned staff. Scott chose **one firm-wide sender**: set that SafeSend
 "Johns Benson & Johns"** so all clients see the firm, never a person. From address is SafeSend's fixed
 `noreply@safesendreturns.com`; reply-to/branding/templates are SafeSend dashboard settings and will match
 the firm's existing SafeSend sends (verify by inspecting a current SafeSend email's headers).
-**MANUAL STEP REMAINING:** rename that SafeSend user's display name in the SafeSend admin (no code change).
+**UPDATE 2026-07-05 — send as firm mailbox, not Scott's account.** SafeSend has NO "display name" field;
+the "[Name] has sent you" label is built from the user's **First + Last name** (that's why it showed
+"Scott Kingston"). And the sending account's *email* can surface in Reply-To — Scott's hard rule is his
+email (scott@parra-steel.com) must appear NOWHERE. So: send as the firm's existing shared mailbox
+**admin@jbjcpas.com**, not Scott's personal account. Scott IS a SafeSend admin. From is always SafeSend's
+fixed `noreply@safesendreturns.com`; Reply-To is a SafeSend/account setting (verify by inspecting headers).
+
+### Storage decision (2026-07-05): KEEP the Supabase copy for now
+How it works today: uploaded PDF is stored in the private Supabase `statements` bucket AND SafeSend
+downloads its own copy via a 1h signed URL → **two copies**. Client viewing IS secure (SafeSend portal).
+Scott chose to **keep the Supabase copy for now** because bookkeepers need to view the PDF **inline in the
+tool later** (e.g., a client calls to discuss the report; the "View" button reads from Supabase).
+**DEFERRED — revisit:** auto-purge the Supabase copy after a set window (e.g. 90 days) so the lasting copy
+is SafeSend-only while keeping a short inline-view window. **OPEN QUESTION for SafeSend support:** can the
+Exchange API RETRIEVE/download a previously-sent message's document? If YES → delete-from-Supabase-after-send
++ fetch on-demand for inline view (best of both). If NO → timed auto-purge is the fallback.
+
+### ✅ DONE 2026-08-13 — admin@ sender wired up & tested
+Switched Netlify `SAFESEND_USER_EMAIL=admin@jbjcpas.com` + redeployed. Test to Scott's inbox confirmed:
+From = "Johns Benson & Johns CPAs, P.A. <noreply@safesendreturns.com>", body/signature = firm + admin@,
+**scott@parra-steel.com appears NOWHERE.** No wife/mailbox step needed — admin@ was already an active
+SafeSend user. Reply-to worry was moot: SafeSend sends from a no-reply address by default.
+Cosmetic leftovers (optional): (a) body/signature reads "Johns Benson Johns" (no "&") — comes from the
+admin@ user's First/Last name fields; add "&" there if wanted. (b) Email showed a 7-day download window
+("download before …") — a SafeSend *expiration* setting (separate from our retentionPeriod); lengthen in
+Exchange Settings before rollout if clients need longer.
 
 ### TODOs still open
-1. ⚠️ **Rotate secrets before real clients:** the SafeSend Client Secret + subscription keys were
-   screenshotted during setup; regenerate them and update Netlify.
-2. **Set SafeSend display name to the firm** (the manual step above) before any real client send.
-3. **Confirm with SafeSend** that API-sent (Send Message) emails use the same From/branding/templates as
-   the Outlook plug-in sends (should, same account — worth one confirmation before the 1000-client rollout).
-4. **Quick UX win Scott wants:** a per-client OneDrive **folder link** field shown by the Upload button
-   ("📂 Open FS folder") so Carolyn doesn't dig through folders. (Browsers can't pre-aim the file picker —
-   just a clickable shortcut to the folder.)
+2. **Confirm with SafeSend:** (a) same From/branding/templates for API sends vs the Outlook plug-in; (b)
+   whether a sent Exchange message's document can be retrieved via API (drives the auto-purge design).
+3. **Auto-purge Supabase copies after N days** (deferred — see Storage decision above).
+4. **Quick UX win Scott wants:** a per-client OneDrive **folder link** field by the Upload button
+   ("📂 Open FS folder"). (Browsers can't pre-aim the file picker — just a clickable folder shortcut.)
+
+### Declined / dropped
+- **Rotate SafeSend secrets:** Scott decided NOT to (2026-07-05), despite the client secret + subscription
+  keys being screenshotted during setup and present in git history. Left as-is per his call.
 
 ### Phase 2 (later) — eliminate the manual upload
 Goal: Carolyn saves the FS PDF to OneDrive in a standard path and BookTracker fetches it automatically.
