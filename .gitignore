@@ -17,6 +17,9 @@ dist-ssr
 .env.*
 !.env.example
 
+# Local secrets scratch file — never commit
+keys/
+
 # Local seeding files (may contain plaintext passwords for initial import only)
 seed/
 !seed/.gitkeep
