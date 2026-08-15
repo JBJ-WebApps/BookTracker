@@ -1,5 +1,34 @@
 # BookTracker — session handoff
 
+## ✅ DONE 2026-08-14/15 — GitHub ownership moved to Gmail; ~56 new clients imported
+- **Git/GitHub ownership migrated off parra-steel.** `github.com/JBJ-WebApps/BookTracker` is an
+  org-owned repo. Added Scott's Gmail-linked GitHub login (`fsk1290`) as a full org owner; this
+  repo's `.git/config` is now pinned (repo-local `user.email` + `credential.https://github.com.username`)
+  so it **always** commits/pushes as the Gmail identity no matter which `gh` account is active on the
+  machine. Old parra-steel account (`IronKingBids`) still has org access too — left alone on purpose,
+  not removed. Global git config on this machine is untouched (still parra-steel default for other repos).
+- **`keys/keys.txt` untracked from git** (was holding real SafeSend secret values in the working copy,
+  tracked-but-empty in history — no leak occurred, but it was one `git add -A` away from one). Added
+  `keys/` to `.gitignore`. File still exists locally with its contents, git just no longer watches it.
+- **New clients imported from Carolyn's Excel exports**, additive-only (existing clients never touched):
+  - 7 new clients from the regular "Bookkeeping - All Clients" sheet (`scripts/sync-new-clients.mjs`).
+  - 49 new clients from `2026 BK - FPT` — the book of business from a firm Scott's wife acquired
+    (`scripts/import-fpt-clients.mjs`). No account/staff/fee data yet for these; services (Sales Tax /
+    Payroll) tagged where the sheet gave a clean signal, "Write Up" work noted in `notes` since there's
+    no matching `service_types` row for it.
+  - Both scripts are additive-only, `--dry-run` capable, and refuse to guess on ambiguous fuzzy name
+    matches (a real near-miss was caught pre-write: naive prefix-matching would have mis-attributed an
+    *existing* client's data to a similarly-named new one — see script comments).
+  - Full duplicate scan run across all 144 clients afterward: no exact-name dupes; a handful of
+    near-duplicate-looking pairs (Custom Glass / Custom Glass Creations, WR Bar / WR Bar Enterprise,
+    C. Jean Starkey / ...PA, the 3 Mexico's Grill locations, The Real Estate Collection variants) were
+    each confirmed with Scott as genuinely separate entities. One pre-existing pair not created by this
+    session (`Fleck Holdings` / `Fleck Holdings 3`) was flagged but not touched.
+- Reusable scripts live in `scripts/sync-new-clients.mjs` and `scripts/import-fpt-clients.mjs` for the
+  next time Carolyn sends an updated workbook. Both need the Supabase `service_role` key pasted by hand
+  (Project Settings → API) — it can't be pulled via `netlify env:get`, that value is masked there.
+
+
 Pick-up notes for continuing on another machine. The memory notes in `~/.claude/`
 do **not** sync across computers, so this file (which travels via OneDrive + GitHub)
 is the source of truth for context.
