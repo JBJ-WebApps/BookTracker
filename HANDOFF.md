@@ -1,5 +1,37 @@
 # BookTracker — session handoff
 
+## ✅ DONE 2026-08-17 — Per-client User Notes (@mention alerts); admin roles updated; 8 pending logins reset
+- **Per-client User Notes**, live in commit `c72fbe5`, migration `0011_client_notes.sql` applied to
+  Supabase. A "Notes" button + red unread badge sits next to "Due day" on each client's detail page;
+  clicking opens a thread modal (`src/components/NotesModal.jsx`) where any user can post and
+  `@Full Name`-tag a coworker. Tagging creates a `note_mentions` row; a red badge lights up live
+  (Supabase Realtime) both on that client's page and globally in the top bar next to the tagged
+  user's name (`src/components/NotesAlertsBell.jsx`), and clears when they open the modal. Shared
+  unread state lives in `src/context/MentionAlertsContext.jsx`, mounted once in `Layout.jsx`. This
+  is **separate from** the pre-existing free-text `clients.notes` field in the Edit Client modal —
+  that one is untouched.
+  - Self-mentions are intentionally suppressed (no mention row/badge if you tag yourself) —
+    expected behavior, came up during testing, not a bug.
+  - Added a shared "✕" close button to `src/components/Modal.jsx` (every modal in the app, not
+    just Notes), alongside the existing Esc-to-close.
+- **Admin roles changed** (Carolyn, via the Users page): Karen A Roberts and Kim Evans moved
+  Admin → Employee. Current admins: Arielle M Kingston, Carolyn Wells, Kristina M Petuch, Scott
+  Kingston.
+- **8 pending staff given fresh temp passwords** (Amethyst Cannon, Arielle M Kingston, Heather L
+  Krieger, Joyce Marion, Karen A Roberts, Kim Evans, Laura Dutcher, Tammy A Fisk) — temp passwords
+  are **never stored anywhere** (shown once in the UI at creation/reset, then gone by design), so
+  there was no way to recover the originals. Generated new ones via a throwaway script using the
+  same `manage-users.js` reset-password path, wrote them to a scratchpad file to email Carolyn,
+  then deleted the script. If this comes up again: either click "Reset password" per-user in the
+  Users page, or re-run the same pattern (query `profiles` where `must_change_password = true`,
+  call `admin.auth.admin.updateUserById`) — don't try to look up an old password, it doesn't exist.
+- Sent Carolyn a plain-language admin-vs-employee explainer (email only, no file): admins see/edit
+  every client, can add clients, and see Reports/Audit Log/Users; employees see every client but
+  can only edit ones they're Responsible/Assistant on, can't add clients, and don't see those 3
+  admin-only pages.
+- *(Housekeeping: the admin **Reports page**, `src/pages/ReportsPage.jsx`, shipped earlier the same
+  day in commit `e7fd6c5` but hadn't been logged here yet — noting it now.)*
+
 ## ✅ DONE 2026-08-14/15 — GitHub ownership moved to Gmail; ~56 new clients imported
 - **Git/GitHub ownership migrated off parra-steel.** `github.com/JBJ-WebApps/BookTracker` is an
   org-owned repo. Added Scott's Gmail-linked GitHub login (`fsk1290`) as a full org owner; this
