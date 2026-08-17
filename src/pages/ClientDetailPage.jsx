@@ -1,19 +1,22 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { useClientDetail } from '../hooks/useClientDetail';
 import { useStaff } from '../hooks/useClients';
 import { useServiceTypes, useClientServices } from '../hooks/useServices';
 import { useAuth } from '../context/AuthContext';
+import { useMentionAlerts } from '../context/MentionAlertsContext';
 import { parseMonthParam, todayMonthParam, MONTHS_LONG } from '../lib/months';
 import { fmtCurrency } from '../lib/format';
 import MonthGrid from '../components/MonthGrid';
 import ClientFormModal from '../components/ClientFormModal';
 import StatementsPanel from '../components/StatementsPanel';
+import NotesModal from '../components/NotesModal';
 import { STATEMENTS_ENABLED } from '../lib/statements';
 
 export default function ClientDetailPage() {
   const { id } = useParams();
   const { isAdmin, profile } = useAuth();
+  const { unreadByClient } = useMentionAlerts();
   const [searchParams, setSearchParams] = useSearchParams();
   const monthParam = searchParams.get('month') || todayMonthParam();
   const { year, month1 } = parseMonthParam(monthParam) || parseMonthParam(todayMonthParam());
@@ -23,6 +26,18 @@ export default function ClientDetailPage() {
   const serviceTypes = useServiceTypes();
   const { ids: serviceIds } = useClientServices(client?.id);
   const [editOpen, setEditOpen] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
+
+  // Arriving from the top-bar "unread" dropdown (?notes=1) opens the modal directly.
+  useEffect(() => {
+    if (searchParams.get('notes') === '1') {
+      setNotesOpen(true);
+      const next = new URLSearchParams(searchParams);
+      next.delete('notes');
+      setSearchParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (loading && !client) {
     return <div className="p-8 text-navy-500">Loading…</div>;
@@ -45,6 +60,7 @@ export default function ClientDetailPage() {
 
   const resp = staff.find((s) => s.id === client.responsible_staff_id);
   const asst = staff.find((s) => s.id === client.assistant_staff_id);
+  const unreadNotes = unreadByClient.find((c) => c.clientId === client.id)?.count || 0;
 
   const emailList = (client.emails || '')
     .split(',')
@@ -91,6 +107,17 @@ export default function ClientDetailPage() {
             {client.due_to_tax_manager_day && (
               <span>Due day: <strong className="text-navy-700">{client.due_to_tax_manager_day}</strong></span>
             )}
+            <button
+              onClick={() => setNotesOpen(true)}
+              className="relative inline-flex items-center gap-1.5 rounded-full border border-navy-200 bg-white px-2.5 py-0.5 text-xs font-medium text-navy-600 hover:bg-navy-50"
+            >
+              Notes
+              {unreadNotes > 0 && (
+                <span className="inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold">
+                  {unreadNotes}
+                </span>
+              )}
+            </button>
           </div>
           {client.due_to_tax_manager_note && (
             <div className="mt-1 text-xs text-navy-400 italic">{client.due_to_tax_manager_note}</div>
@@ -221,6 +248,14 @@ export default function ClientDetailPage() {
           refresh();
         }}
         existing={client}
+      />
+
+      <NotesModal
+        open={notesOpen}
+        onClose={() => setNotesOpen(false)}
+        clientId={client.id}
+        userId={profile?.id}
+        staff={staff}
       />
     </div>
   );

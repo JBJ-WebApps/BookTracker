@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import NotesAlertsBell from './NotesAlertsBell';
 
 export default function TopBar() {
   const { profile, signOut, isAdmin } = useAuth();
@@ -32,6 +33,7 @@ export default function TopBar() {
       </nav>
 
       <div className="ml-auto flex items-center gap-4">
+        <NotesAlertsBell />
         <div className="flex items-center gap-3">
           <div className="text-right leading-tight">
             <div className="text-sm font-medium">{profile?.full_name || profile?.email || 'User'}</div>

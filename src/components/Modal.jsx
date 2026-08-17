@@ -27,8 +27,15 @@ export default function Modal({ open, onClose, title, children, footer, size = '
       />
       <div className={`relative w-full ${widthClass} rounded-2xl bg-white shadow-2xl`}>
         {title && (
-          <div className="px-6 pt-5 pb-3 border-b border-navy-50">
+          <div className="px-6 pt-5 pb-3 border-b border-navy-50 flex items-center justify-between gap-4">
             <h2 className="text-lg font-semibold text-navy-600">{title}</h2>
+            <button
+              onClick={onClose}
+              aria-label="Close"
+              className="text-navy-900 hover:text-navy-500 text-xl leading-none"
+            >
+              ✕
+            </button>
           </div>
         )}
         <div className="px-6 py-5 max-h-[75vh] overflow-y-auto">{children}</div>
