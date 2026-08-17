@@ -5,7 +5,7 @@ export default function TopBar() {
   const { profile, signOut, isAdmin } = useAuth();
 
   return (
-    <header className="h-16 bg-navy-600 text-white flex items-center px-6 shadow-lg relative z-20">
+    <header className="h-16 bg-navy-600 text-white flex items-center px-6 shadow-lg relative z-20 print:hidden">
       <Link to="/" className="flex items-center gap-3">
         <img
           src="/logo3%20185%20x%20100%20PX.jpg"
@@ -20,6 +20,9 @@ export default function TopBar() {
 
       <nav className="ml-10 flex items-center gap-6 text-sm">
         <Link to="/" className="hover:text-teal-200 transition">Dashboard</Link>
+        {isAdmin && (
+          <Link to="/reports" className="hover:text-teal-200 transition">Reports</Link>
+        )}
         {isAdmin && (
           <Link to="/audit" className="hover:text-teal-200 transition">Audit Log</Link>
         )}

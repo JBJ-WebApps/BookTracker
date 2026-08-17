@@ -14,3 +14,12 @@ body {
   background: #f8fafc;
   color: #0f172a;
 }
+
+@media print {
+  html,
+  body {
+    background: white;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

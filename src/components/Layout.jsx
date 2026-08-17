@@ -6,11 +6,11 @@ import { useIdleLogout } from '../hooks/useIdleLogout';
 export default function Layout() {
   useIdleLogout();
   return (
-    <div className="min-h-screen flex flex-col bg-navy-50">
+    <div className="min-h-screen flex flex-col bg-navy-50 print:block print:h-auto print:bg-white">
       <TopBar />
-      <div className="flex flex-1 min-h-0">
+      <div className="flex flex-1 min-h-0 print:block">
         <Sidebar />
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-auto print:overflow-visible print:h-auto print:w-full">
           <Outlet />
         </main>
       </div>

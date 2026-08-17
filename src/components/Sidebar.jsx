@@ -161,7 +161,7 @@ export default function Sidebar() {
   );
 
   return (
-    <aside className="w-72 shrink-0 bg-white border-r border-navy-100 overflow-y-auto">
+    <aside className="w-72 shrink-0 bg-white border-r border-navy-100 overflow-y-auto print:hidden">
       <div className="px-4 pt-5 pb-3">
         <div className="flex items-baseline justify-between mb-2">
           <div className="text-[11px] font-bold uppercase tracking-wider text-navy-400">Clients</div>
