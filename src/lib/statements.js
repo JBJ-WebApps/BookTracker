@@ -52,6 +52,17 @@ export async function uploadStatement({ clientId, year, month1, file, userId }) 
   return data;
 }
 
+// Removes the uploaded PDF and its publication record entirely (month reverts
+// to "No statement uploaded"). Blocked in the UI while a send is in flight.
+export async function deleteStatement({ publicationId, filePath }) {
+  if (filePath) {
+    const { error: rmErr } = await supabase.storage.from(BUCKET).remove([filePath]);
+    if (rmErr) throw rmErr;
+  }
+  const { error } = await supabase.from('statement_publications').delete().eq('id', publicationId);
+  if (error) throw error;
+}
+
 // Calls the serverless publish function (mock until CCH is wired up).
 export async function triggerPublish(publicationId) {
   const {

@@ -5,6 +5,7 @@ import Modal from './Modal';
 import {
   fetchPublications,
   uploadStatement,
+  deleteStatement,
   triggerPublish,
   statementSignedUrl,
 } from '../lib/statements';
@@ -86,6 +87,24 @@ export default function StatementsPanel({ clientId, clientName, clientEmails, ye
     }
   };
 
+  const onDelete = async (pub, month1) => {
+    const msg =
+      pub.status === 'published'
+        ? 'This statement was already sent to the client — deleting it only removes the file and record from BookTracker, it will not un-send it. Continue?'
+        : 'Remove this uploaded statement? You\'ll need to upload it again to publish.';
+    if (!confirm(msg)) return;
+    setErr('');
+    setBusyMonth(month1);
+    try {
+      await deleteStatement({ publicationId: pub.id, filePath: pub.file_path });
+      await load();
+    } catch (e) {
+      setErr(e.message || 'Delete failed.');
+    } finally {
+      setBusyMonth(null);
+    }
+  };
+
   const onView = async (pub) => {
     try {
       const url = await statementSignedUrl(pub.file_path);
@@ -158,7 +177,7 @@ export default function StatementsPanel({ clientId, clientName, clientEmails, ye
                 </div>
 
                 {canEdit && (
-                  <div className="flex items-center gap-2 w-52 justify-end">
+                  <div className="flex items-center gap-2 w-64 justify-end">
                     <label
                       className={`text-xs px-2.5 py-1.5 rounded-md cursor-pointer ${
                         busy ? 'text-navy-300' : 'text-navy-600 hover:bg-navy-100'
@@ -176,6 +195,16 @@ export default function StatementsPanel({ clientId, clientName, clientEmails, ye
                         }}
                       />
                     </label>
+                    {pub?.file_path && (
+                      <button
+                        onClick={() => onDelete(pub, month1)}
+                        disabled={busy || pub?.status === 'pending'}
+                        title="Remove uploaded file"
+                        className="text-xs px-2 py-1.5 rounded-md text-red-600 hover:bg-red-50 disabled:opacity-40"
+                      >
+                        Delete
+                      </button>
+                    )}
                     <button
                       onClick={() => setReview({ pub, month1 })}
                       disabled={busy || !pub?.file_path || pub?.status === 'pending'}
