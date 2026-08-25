@@ -1,5 +1,21 @@
 # BookTracker — session handoff
 
+## ✅ DONE 2026-08-19/24 — Delete button for uploaded statements; 46 clients reassigned to Joyce
+- **Statements panel: added a Delete button** (commit `fb5db78`) next to Replace/Publish in
+  `src/components/StatementsPanel.jsx`, backed by new `deleteStatement()` in `src/lib/statements.js`.
+  Removes the PDF from the `statements` storage bucket and deletes the `statement_publications` row
+  (month reverts to "No statement uploaded"). No migration needed — RLS on that table/bucket was
+  already blanket "any authed user, all operations". Disabled while a send is `pending`; deleting an
+  already-`published` record shows an extra confirm warning that it won't un-send from SafeSend, it
+  only clears the local record/file.
+- **46 previously-unassigned clients assigned to Joyce Marion** (`responsible_staff_id` set via a
+  one-off script using the Supabase service_role key, run then deleted — not committed, not reusable).
+  Matched the sidebar's "UNASSIGNED" count of 46 only after filtering `is_archived = false` (raw
+  unfiltered count was 51 — 5 archived clients also had no responsible staff, correctly left alone).
+  No script file was kept since this was a single bulk-reassignment, not a recurring workflow.
+- Also produced an ad hoc `Unassigned_Clients.xlsx` export for Scott (Desktop) earlier the same
+  window, unrelated to code — no lasting relevance beyond that file existing.
+
 ## ✅ DONE 2026-08-17 — Per-client User Notes (@mention alerts); admin roles updated; 8 pending logins reset
 - **Per-client User Notes**, live in commit `c72fbe5`, migration `0011_client_notes.sql` applied to
   Supabase. A "Notes" button + red unread badge sits next to "Due day" on each client's detail page;
